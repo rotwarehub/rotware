@@ -1,0 +1,596 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+-- Window
+local Window = Rayfield:CreateWindow({
+    Name = "Rotware Hub v1 | Grow a Garden",
+    LoadingTitle = "Rotware Hub",
+    LoadingSubtitle = "Loading Grow a Garden script...",
+    ShowText = "Rotware",
+    Theme = {
+        TextColor = Color3.fromRGB(240, 240, 240),
+        Background = Color3.fromRGB(20, 0, 0),
+        Topbar = Color3.fromRGB(40, 0, 0),
+        Shadow = Color3.fromRGB(15, 0, 0),
+        NotificationBackground = Color3.fromRGB(30, 0, 0),
+        NotificationActionsBackground = Color3.fromRGB(200, 50, 50),
+        TabBackground = Color3.fromRGB(60, 0, 0),
+        TabStroke = Color3.fromRGB(90, 0, 0),
+        TabBackgroundSelected = Color3.fromRGB(200, 0, 0),
+        TabTextColor = Color3.fromRGB(240, 240, 240),
+        SelectedTabTextColor = Color3.fromRGB(255, 255, 255),
+        ElementBackground = Color3.fromRGB(50, 0, 0),
+        ElementBackgroundHover = Color3.fromRGB(70, 0, 0),
+        SecondaryElementBackground = Color3.fromRGB(40, 0, 0),
+        ElementStroke = Color3.fromRGB(120, 0, 0),
+        SecondaryElementStroke = Color3.fromRGB(80, 0, 0),
+        SliderBackground = Color3.fromRGB(100, 0, 0),
+        SliderProgress = Color3.fromRGB(200, 0, 0),
+        SliderStroke = Color3.fromRGB(255, 0, 0),
+        ToggleBackground = Color3.fromRGB(30, 0, 0),
+        ToggleEnabled = Color3.fromRGB(220, 0, 0),
+        ToggleDisabled = Color3.fromRGB(100, 100, 100),
+        ToggleEnabledStroke = Color3.fromRGB(255, 50, 50),
+        ToggleDisabledStroke = Color3.fromRGB(125, 125, 125),
+        ToggleEnabledOuterStroke = Color3.fromRGB(180, 0, 0),
+        ToggleDisabledOuterStroke = Color3.fromRGB(65, 65, 65),
+        DropdownSelected = Color3.fromRGB(80, 0, 0),
+        DropdownUnselected = Color3.fromRGB(50, 0, 0),
+        InputBackground = Color3.fromRGB(30, 0, 0),
+        InputStroke = Color3.fromRGB(100, 0, 0),
+        PlaceholderColor = Color3.fromRGB(200, 150, 150)
+    },
+    ToggleUIKeybind = Enum.KeyCode.RightControl,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "RotwareHub",
+        FileName = "GrowAGardenConfig"
+    },
+    Discord = { Enabled = false },
+    KeySystem = false, -- ENABLE key system
+    KeySettings = {
+        Title = "Rotware Hub v1",
+        Subtitle = "Enter Access Key",
+        Note = "Get your key from the official source",
+        FileName = "RotwareKey", -- local file to save key
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {} -- We'll validate via Work.ink API
+    }
+})
+
+
+
+
+-- Tabs
+local FarmingTab = Window:CreateTab("Farming", "leaf")
+local AutoBuyTab = Window:CreateTab("Auto-Buy", "shopping-cart")
+local MovementTab = Window:CreateTab("Movement", "move")
+local MiscTab = Window:CreateTab("Misc", "settings")
+local UtilityTab = Window:CreateTab("Utility", "move")
+
+-- Services & Player
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local lplr = Players.LocalPlayer
+local GameEvents = ReplicatedStorage:FindFirstChild("GameEvents")
+
+-- Globals
+getgenv().AutoFarm = false
+getgenv().AutoSell = false
+getgenv().AutoBuy = false
+getgenv().FloatMode = false
+getgenv().NoClip = false
+getgenv().PlantSizeMultiplier = 3
+getgenv().FruitESP = false
+getgenv().RainbowBaseplate = false
+getgenv().RainbowChar = false
+getgenv().AutoPlant = false
+getgenv().RainbowSpinBaseplate = false
+
+
+
+local function rainbowSpinBaseplates()
+    task.spawn(function()
+        local baseplateFolder = workspace:FindFirstChild("Baseplate")
+        if not baseplateFolder then return end
+
+        while getgenv().RainbowSpinBaseplate do
+            for _, part in ipairs(baseplateFolder:GetChildren()) do
+                if part:IsA("BasePart") then
+                    -- Spin
+                    part.CFrame = part.CFrame * CFrame.Angles(0, math.rad(1), 0)
+
+                    -- Change color
+                    local hue = tick() % 1  -- continuously cycles hue
+                    part.Color = Color3.fromHSV(hue, 1, 1)
+                end
+            end
+            task.wait(0.03) -- controls speed of spin and color change
+        end
+    end)
+end
+
+local function getEquippedSeed()
+    -- Replace with your logic if the game has a tool system
+    local char = lplr.Character
+    if char then
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and tool.Name:match("Seed") then
+            return tool.Name
+        end
+    end
+    return nil
+end
+
+local function autoPlant()
+    task.spawn(function()
+        while getgenv().AutoPlant do
+            local seed = getEquippedSeed()
+            if seed then
+                -- Simulate planting by clicking (left mouse click)
+                local mouse = lplr:GetMouse()
+                mouse1click() -- or your executor's equivalent
+                
+            else
+                task.wait(1) -- no seed equipped, wait longer
+            end
+        end
+    end)
+end
+
+-- Helper Functions
+local function getRemote(folder, name)
+    local f = ReplicatedStorage:FindFirstChild(folder)
+    return f and f:FindFirstChild(name) or nil
+end
+
+local function getHRP()
+    return lplr.Character and lplr.Character:FindFirstChild("HumanoidRootPart")
+end
+
+local function teleportTo(pos)
+    local hrp = getHRP()
+    if hrp then hrp.CFrame = CFrame.new(pos) end
+end
+
+local function collectFruit(fruit)
+    if fruit and fruit.PrimaryPart then
+        local prompt = fruit:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if prompt then fireproximityprompt(prompt, 1) end
+    end
+end
+
+local function getOwnedFarms()
+    local farms = {}
+    for _, farm in ipairs(workspace:WaitForChild("Farm"):GetChildren()) do
+        local success, isOwned = pcall(function()
+            return farm.Important.Data.Owner.Value == lplr.Name
+        end)
+        if success and isOwned then table.insert(farms, farm) end
+    end
+    return farms
+end
+
+local function getPlants(farm)
+    local plants = {}
+    local folder = farm.Important:FindFirstChild("Plants_Physical")
+    if folder then
+        for _, plant in ipairs(folder:GetChildren()) do
+            if plant:IsA("Model") then table.insert(plants, plant) end
+        end
+    end
+    return plants
+end
+
+local function getFruits(plant)
+    local fruits = {}
+    local folder = plant:FindFirstChild("Fruits")
+    if folder then
+        for _, fruit in ipairs(folder:GetChildren()) do
+            if fruit:IsA("Model") and fruit.PrimaryPart then table.insert(fruits, fruit) end
+        end
+    end
+    return fruits
+end
+
+-- =========================
+-- FARMING TAB
+-- =========================
+FarmingTab:CreateSection("Auto Actions")
+
+FarmingTab:CreateToggle({
+    Name = "Auto Farm (Summer Harvest)",
+    CurrentValue = false,
+    Flag = "AutoFarm",
+    Callback = function(Value)
+        getgenv().AutoFarm = Value
+        task.spawn(function()
+            while getgenv().AutoFarm do
+                local farms = getOwnedFarms()
+                for _, farm in ipairs(farms) do
+                    for _, plant in ipairs(getPlants(farm)) do
+                        for _, fruit in ipairs(getFruits(plant)) do
+                            teleportTo(fruit.PrimaryPart.Position + Vector3.new(0,3,0))
+                            task.wait(0.2)
+                            collectFruit(fruit)
+                            task.wait(0.1)
+                        end
+                    end
+                end
+                task.wait(0.2)
+            end
+        end)
+    end
+})
+
+FarmingTab:CreateToggle({
+    Name = "Auto Sell",
+    CurrentValue = false,
+    Flag = "AutoSell",
+    Callback = function(Value)
+        getgenv().AutoSell = Value
+        local sellPos = CFrame.new(90.08,0.98,3.02)
+        task.spawn(function()
+            while getgenv().AutoSell do
+                local hrp = getHRP()
+                local sellRemote = GameEvents and GameEvents:FindFirstChild("Sell_Inventory")
+                if hrp and sellRemote then
+                    local orig = hrp.CFrame
+                    hrp.CFrame = sellPos
+                    task.wait(0.1)
+                    pcall(function() sellRemote:FireServer() end)
+                    task.wait(0.1)
+                    hrp.CFrame = orig
+                end
+                task.wait(3)
+            end
+        end)
+    end
+})
+
+FarmingTab:CreateToggle({
+    Name = "Auto Plant (Equip Seed)",
+    CurrentValue = false,
+    Flag = "AutoPlant",
+    Callback = function(Value)
+        getgenv().AutoPlant = Value
+        if Value then
+            autoPlant()
+        end
+    end
+})
+
+FarmingTab:CreateToggle({
+    Name = "Fruit ESP (All Gardens)",
+    CurrentValue = false,
+    Flag = "FruitESP",
+    Callback = function(Value)
+        getgenv().FruitESP = Value
+        local function cleanupESP()
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj:IsA("Highlight") and obj.Name == "FruitESP_Highlight" then
+                    obj:Destroy()
+                end
+            end
+        end
+        cleanupESP()
+        if Value then
+            task.spawn(function()
+                while getgenv().FruitESP do
+                    for _, farm in ipairs(workspace:WaitForChild("Farm"):GetChildren()) do
+                        local plantsFolder = farm:FindFirstChild("Important") and farm.Important:FindFirstChild("Plants_Physical")
+                        if plantsFolder then
+                            for _, plant in ipairs(plantsFolder:GetChildren()) do
+                                for _, fruit in ipairs(plant:FindFirstChild("Fruits") or {}) do
+                                    if fruit:IsA("Model") and fruit.PrimaryPart and not fruit:FindFirstChild("FruitESP_Highlight") then
+                                        local highlight = Instance.new("Highlight")
+                                        highlight.Name = "FruitESP_Highlight"
+                                        highlight.FillTransparency = 1
+                                        highlight.OutlineColor = Color3.fromRGB(0,255,0)
+                                        highlight.OutlineTransparency = 0
+                                        highlight.Adornee = fruit
+                                        highlight.Parent = fruit
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    task.wait(3)
+                end
+                cleanupESP()
+            end)
+        end
+    end
+})
+
+FarmingTab:CreateButton({
+    Name = "Teleport Sell Fruit",
+    Callback = function()
+        teleportTo(Vector3.new(90.08,0.98,3.02))
+    end
+})
+
+FarmingTab:CreateButton({
+    Name = "Teleport Center",
+    Callback = function()
+        teleportTo(Vector3.new(-119.213,4.398,-10.106))
+    end
+})
+
+-- =========================
+-- AUTO-BUY TAB
+-- =========================
+AutoBuyTab:CreateSection("Purchasing")
+AutoBuyTab:CreateToggle({
+    Name = "Auto Buy Upgrades",
+    CurrentValue = false,
+    Flag = "AutoBuy",
+    Callback = function(Value)
+        getgenv().AutoBuy = Value
+        task.spawn(function()
+            while getgenv().AutoBuy do
+                local buyRemote = getRemote("Remotes","Buy") or (GameEvents and GameEvents:FindFirstChild("Buy"))
+                if buyRemote then
+                    for _, v in pairs(ReplicatedStorage:WaitForChild("Shop"):GetChildren()) do
+                        pcall(function() buyRemote:FireServer(v.Name) end)
+                        task.wait(0.5)
+                    end
+                end
+                task.wait(2)
+            end
+        end)
+    end
+})
+
+-- =========================
+-- MOVEMENT TAB
+-- =========================
+MovementTab:CreateSection("Movement")
+MovementTab:CreateSlider({
+    Name = "Walkspeed",
+    Range = {16, 100},
+    Increment = 1,
+    Suffix = "Speed",
+    CurrentValue = 16,
+    Flag = "Walkspeed",
+    Callback = function(Value)
+        local humanoid = lplr.Character and lplr.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then humanoid.WalkSpeed = Value end
+    end
+})
+
+MovementTab:CreateToggle({
+    Name = "Float Mode",
+    CurrentValue = false,
+    Flag = "FloatMode",
+    Callback = function(Value)
+        getgenv().FloatMode = Value
+        local hrp = getHRP()
+        if hrp then
+            if Value then
+                local bv = Instance.new("BodyVelocity")
+                bv.Name = "FloatBV"
+                bv.MaxForce = Vector3.new(1e5,1e5,1e5)
+                bv.Velocity = Vector3.new(0,0,0)
+                bv.Parent = hrp
+            else
+                if hrp:FindFirstChild("FloatBV") then hrp.FloatBV:Destroy() end
+            end
+        end
+    end
+})
+
+MovementTab:CreateToggle({
+    Name = "NoClip",
+    CurrentValue = false,
+    Flag = "NoClip",
+    Callback = function(Value)
+        getgenv().NoClip = Value
+    end
+})
+
+RunService.Stepped:Connect(function()
+    if getgenv().NoClip then
+        local char = lplr.Character
+        if char then
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then part.CanCollide = false end
+            end
+        end
+    end
+end)
+
+-- =========================
+-- MISC TAB
+-- =========================
+MiscTab:CreateSection("Visuals & Misc")
+MiscTab:CreateSlider({
+    Name = "Max Plant Size",
+    Range = {1,30},
+    Increment = 0.5,
+    Suffix = "x",
+    CurrentValue = getgenv().PlantSizeMultiplier,
+    Flag = "PlantSizeSlider",
+    Callback = function(Value)
+        getgenv().PlantSizeMultiplier = Value
+        for _, farm in ipairs(workspace:WaitForChild("Farm"):GetChildren()) do
+            local plantsFolder = farm:FindFirstChild("Important") and farm.Important:FindFirstChild("Plants_Physical")
+            if plantsFolder then
+                for _, plant in ipairs(plantsFolder:GetChildren()) do
+                    if plant:IsA("Model") then
+                        for _, part in ipairs(plant:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.Size = part.Size.Unit * getgenv().PlantSizeMultiplier
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+})
+
+MiscTab:CreateToggle({
+    Name = "Rainbow Character",
+    CurrentValue = false,
+    Flag = "RainbowChar",
+    Callback = function(Value)
+        getgenv().RainbowChar = Value
+        task.spawn(function()
+            while getgenv().RainbowChar do
+                local char = lplr.Character
+                if char then
+                    for _, part in ipairs(char:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            for hue=0,1,0.01 do
+                                if not getgenv().RainbowChar then break end
+                                part.Color = Color3.fromHSV(hue,1,1)
+                                task.wait(0.05)
+                            end
+                        end
+                    end
+                end
+                task.wait()
+            end
+        end)
+    end
+})
+
+MiscTab:CreateToggle({
+    Name = "Anti AFK",
+    CurrentValue = false,
+    Flag = "AntiAFK",
+    Callback = function(val)
+        local vu = game:GetService("VirtualUser")
+        if val then
+            local conn
+            conn = Players.LocalPlayer.Idled:Connect(function()
+                vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+                wait(1)
+                vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+            end)
+            getgenv().antiAfkConn = conn
+        else
+            if getgenv().antiAfkConn then
+                getgenv().antiAfkConn:Disconnect()
+                getgenv().antiAfkConn = nil
+            end
+        end
+    end
+})
+
+MiscTab:CreateButton({
+    Name = "Send Notification",
+    Callback = function()
+        Rayfield:Notify({
+            Title = "Rotware Hub",
+            Content = "Thanks for using Rotware Hub v1!",
+            Duration = 6.5
+        })
+    end
+})
+
+MiscTab:CreateButton({
+    Name = "Destroy Rotware",
+    Callback = function()
+        Rayfield:Destroy()
+    end
+})
+
+-- =========================
+-- UTILITY TAB
+-- =========================
+UtilityTab:CreateSection("Utility Functions")
+UtilityTab:CreateButton({
+    Name = "Save Position (svp)",
+    Callback = function()
+        local hrp = getHRP()
+        if hrp then
+            getgenv().savedPos = hrp.Position
+            Rayfield:Notify({Title="Position Saved", Content=tostring(getgenv().savedPos), Duration=4})
+        end
+    end
+})
+
+UtilityTab:CreateButton({
+    Name = "Teleport to Saved Pos (tpt)",
+    Callback = function()
+        local hrp = getHRP()
+        if hrp and getgenv().savedPos then
+            hrp.CFrame = CFrame.new(getgenv().savedPos)
+        else
+            Rayfield:Notify({Title="Error", Content="No position saved yet!", Duration=4})
+        end
+    end
+})
+
+UtilityTab:CreateButton({
+    Name = "Teleport to Coordinates (Custom tpt)",
+    CurrentValue = "",
+    PlaceholderText = "Enter Vector3 as x,y,z",
+    Callback = function(text)
+        local hrp = getHRP()
+        if hrp then
+            local x,y,z = text:match("([^,]+),([^,]+),([^,]+)")
+            if x and y and z then
+                hrp.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z))
+            else
+                Rayfield:Notify({Title="Error", Content="Invalid coordinates format!", Duration=4})
+            end
+        end
+    end
+})
+
+MiscTab:CreateToggle({
+    Name = "Spin & Rainbow Baseplates",
+    CurrentValue = false,
+    Flag = "RainbowSpinBaseplates",
+    Callback = function(Value)
+        getgenv().RainbowSpinBaseplate = Value
+        if Value then
+            rainbowSpinBaseplates()
+        end
+    end
+})
+
+-- Buying seeds, gears, pets, sell, submit
+UtilityTab:CreateButton({Name="Buy All Selected Seeds", Callback=function()
+    local buySeed = GameEvents and GameEvents:FindFirstChild("BuySeed")
+    local seeds = {"TomatoSeed","CarrotSeed","CornSeed"}
+    if buySeed then
+        for i=1,25 do for _,seed in ipairs(seeds) do pcall(function() buySeed:FireServer(seed) end) task.wait() end end
+    end
+end})
+
+UtilityTab:CreateButton({Name="Buy All Selected Gears", Callback=function()
+    local buyGear = GameEvents and GameEvents:FindFirstChild("BuyGear")
+    local gears = {"Shovel","WateringCan"}
+    if buyGear then
+        for i=1,25 do for _,gear in ipairs(gears) do pcall(function() buyGear:FireServer(gear) end) task.wait() end end
+    end
+end})
+
+UtilityTab:CreateButton({Name="Buy Pets", Callback=function()
+    local BuyPet = GameEvents and GameEvents:FindFirstChild("BuyPet")
+    local pets = {"BeePet","ButterflyPet"}
+    if BuyPet then
+        for i=1,3 do for _,pet in ipairs(pets) do pcall(function() BuyPet:FireServer(pet) end) task.wait() end end
+    end
+end})
+
+UtilityTab:CreateButton({Name="Sell Inventory", Callback=function()
+    local sellRemote = GameEvents and GameEvents:FindFirstChild("Sell_Inventory")
+    if sellRemote then pcall(function() sellRemote:FireServer() end) end
+end})
+
+UtilityTab:CreateButton({Name="Submit All Plants", Callback=function()
+    if GameEvents and GameEvents:FindFirstChild("NightQuestRemoteEvent") then
+        pcall(function() GameEvents.NightQuestRemoteEvent:FireServer("SubmitAllPlants") end)
+    end
+end})
+
+-- =========================
+-- FINISHED
+-- =========================
+Rayfield:Notify({Title="Rotware Hub", Content="Script loaded successfully!", Duration=5})
